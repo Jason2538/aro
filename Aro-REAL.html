@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Aro - Real Spotify Player</title>
+<meta name="theme-color" content="#000">
+<link rel="preconnect" href="https://api.spotify.com">
+<style>
+:root{--bg:#000;--card:#111;--card2:#1a1a1a;--text:#fff;--text2:#a0a0a0;--green:#1DB954;--red:#ff3b30;--radius:18px;--blur:40px}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont, "SF Pro Display", "Apple SD Gothic Neo", sans-serif;background:#000;color:#fff;overflow:hidden;height:100vh;height:100dvh}
+button{border:none;background:none;color:inherit;font:inherit;cursor:pointer}
+#app{height:100%;display:flex;flex-direction:column;position:relative}
+#bg{position:fixed;inset:0;z-index:0;transition:all 1.5s ease;filter:blur(60px) saturate(1.4);opacity:0.6;transform:scale(1.2)}
+#bg::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.8) 100%)}
+#content{position:relative;z-index:1;height:100%;display:flex;flex-direction:column}
+.login-screen{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;background:radial-gradient(ellipse at 50% 0%, #1a1a1a 0%, #000 70%)}
+.login-title{font-size:48px;font-weight:800;letter-spacing:-1.5px;line-height:0.95;margin-bottom:24px;min-height:120px;display:flex;align-items:center;justify-content:center;transition:opacity 0.5s}
+.login-title span{display:inline-block;animation:fadeIn 0.6s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.login-sub{color:var(--text2);font-size:17px;margin-bottom:40px}
+.btn-primary{background:#fff;color:#000;padding:16px 32px;border-radius:999px;font-weight:700;font-size:17px;transition:transform 0.15s;min-width:220px}
+.btn-primary:active{transform:scale(0.96)}
+.btn-secondary{color:var(--text2);font-size:14px;margin-top:20px;text-decoration:underline;text-underline-offset:4px}
+.register-modal{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(20px);z-index:100;display:none;align-items:center;justify-content:center;padding:24px}
+.register-modal.on{display:flex}
+.register-card{background:#1c1c1e;width:100%;max-width:400px;border-radius:28px;padding:28px}
+.register-card h3{font-size:22px;font-weight:700;margin-bottom:12px}
+.register-card p{color:var(--text2);font-size:14px;line-height:1.5;margin-bottom:20px}
+.input{width:100%;background:#2c2c2e;border:none;border-radius:12px;padding:14px 16px;color:#fff;font-size:16px;margin-bottom:12px;outline:none}
+.input::placeholder{color:#666}
+.share-box{background:#2c2c2e;border-radius:12px;padding:14px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-all;margin:12px 0;max-height:160px;overflow:auto}
+.topbar{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0}
+.topbar h1{font-weight:800;font-size:24px;letter-spacing:-0.5px}
+.icon-btn{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px)}
+.main{flex:1;overflow:auto;padding:0 20px 100px;-webkit-overflow-scrolling:touch}
+.search-wrap{position:sticky;top:0;z-index:2;padding:12px 0;background:linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);backdrop-filter:blur(20px)}
+.search-box{display:flex;align-items:center;background:rgba(255,255,255,0.12);border-radius:12px;padding:10px 14px;gap:10px}
+.search-box input{flex:1;background:transparent;border:none;color:#fff;font-size:16px;outline:none}
+.search-box input::placeholder{color:rgba(255,255,255,0.5)}
+.section-title{font-size:22px;font-weight:700;margin:28px 0 14px;letter-spacing:-0.3px;display:flex;align-items:center;justify-content:space-between}
+.small-btn{background:rgba(255,255,255,0.12);padding:6px 14px;border-radius:999px;font-size:13px;font-weight:600}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(min-width:768px){.grid{grid-template-columns:repeat(4,1fr)}}
+.card{background:var(--card);border-radius:16px;overflow:hidden;transition:transform 0.15s;position:relative}
+.card:active{transform:scale(0.97)}
+.card img{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:#222}
+.card-info{padding:10px 12px}
+.card-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-sub{font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.track-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-radius:10px;transition:background 0.15s}
+.track-row:active{background:rgba(255,255,255,0.08)}
+.track-row img{width:48px;height:48px;border-radius:6px;background:#222;flex-shrink:0}
+.track-info{flex:1;min-width:0}
+.track-name{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.track-artist{font-size:13px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.track-plus{width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;font-size:16px}
+.mini-player{position:fixed;bottom:72px;left:12px;right:12px;background:rgba(40,40,40,0.85);backdrop-filter:blur(40px) saturate(1.5);border-radius:16px;padding:10px 12px;display:flex;align-items:center;gap:12px;z-index:10;transform:translateY(150%);transition:transform 0.4s cubic-bezier(0.2,0.8,0.2,1);border:1px solid rgba(255,255,255,0.08)}
+.mini-player.on{transform:translateY(0)}
+.mini-player img{width:44px;height:44px;border-radius:8px;background:#222}
+.mini-progress{position:absolute;bottom:0;left:0;height:2px;background:#fff;border-radius:0 0 16px 16px;transition:width 0.25s linear}
+.tabbar{position:fixed;bottom:0;left:0;right:0;height:72px;background:rgba(0,0,0,0.85);backdrop-filter:blur(30px);border-top:1px solid rgba(255,255,255,0.08);display:flex;z-index:11;padding-bottom:env(safe-area-inset-bottom)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--text2);font-size:10px;font-weight:500}
+.tab.on{color:#fff}
+.tab svg{width:24px;height:24px}
+.player-screen{position:fixed;inset:0;z-index:20;background:#000;transform:translateY(100%);transition:transform 0.5s cubic-bezier(0.32,0.72,0,1);display:flex;flex-direction:column;overflow:hidden}
+.player-screen.on{transform:translateY(0)}
+.player-bg{position:absolute;inset:0;filter:blur(80px) saturate(1.5) brightness(0.8);opacity:0.7;transition:all 1s;transform:scale(1.3)}
+.player-top{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;height:56px;flex-shrink:0}
+.player-content{position:relative;z-index:1;flex:1;display:flex;gap:24px;padding:12px 24px;overflow:hidden}
+@media(max-width:900px){.player-content{flex-direction:column;padding:12px 20px;overflow:auto}}
+.player-left{flex:0 0 42%;display:flex;flex-direction:column;align-items:center;justify-content:center;max-width:520px;margin:0 auto;width:100%}
+.cover-wrap{width:100%;aspect-ratio:1;max-width:460px;position:relative;transition:transform 0.6s cubic-bezier(0.2,0.8,0.2,1)}
+.cover-wrap.paused{transform:scale(0.96)}
+.cover-wrap img{width:100%;height:100%;object-fit:cover;border-radius:12px;box-shadow:0 30px 60px rgba(0,0,0,0.5);background:#111}
+.player-titles{margin-top:20px;width:100%;text-align:left}
+.player-title{font-size:24px;font-weight:700;letter-spacing:-0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-artist{font-size:17px;color:rgba(255,255,255,0.7);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.progress-wrap{width:100%;margin-top:20px}
+.progress{height:4px;background:rgba(255,255,255,0.2);border-radius:2px;position:relative;cursor:pointer}
+.progress-fill{height:100%;background:#fff;border-radius:2px;width:0%;position:relative;transition:width 0.2s linear}
+.progress-handle{position:absolute;right:-6px;top:50%;transform:translateY(-50%);width:12px;height:12px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.3);opacity:0;transition:opacity 0.15s}
+.progress:hover .progress-handle,.progress.dragging .progress-handle{opacity:1}
+.time-row{display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,0.5);margin-top:6px;font-variant-numeric:tabular-nums}
+.controls{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:360px;margin:18px auto 0;gap:12px}
+.ctrl{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#fff;opacity:0.8;transition:transform 0.1s,opacity 0.1s}
+.ctrl:active{transform:scale(0.9)}
+.ctrl.on{opacity:1;color:var(--green)}
+.play-btn{width:68px;height:68px;background:#fff;color:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:transform 0.15s}
+.play-btn:active{transform:scale(0.94)}
+.play-btn svg{width:28px;height:28px;margin-left:2px}
+.play-btn.pause svg{margin-left:0}
+.player-right{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:rgba(0,0,0,0.2);border-radius:20px;backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);overflow:hidden}
+.segment{display:flex;background:rgba(255,255,255,0.08);border-radius:999px;padding:3px;margin:12px;gap:2px;flex-shrink:0}
+.segment button{flex:1;padding:7px 12px;border-radius:999px;font-size:13px;font-weight:600;color:rgba(255,255,255,0.6);transition:all 0.2s}
+.segment button.on{background:#fff;color:#000}
+.lyrics-box{flex:1;overflow:auto;padding:20px 24px;scroll-behavior:smooth}
+.lyric-line{font-size:28px;font-weight:700;line-height:1.3;padding:10px 0;opacity:0.28;transition:all 0.4s cubic-bezier(0.2,0.8,0.2,1);transform-origin:left;cursor:pointer;letter-spacing:-0.5px}
+@media(max-width:900px){.lyric-line{font-size:22px}}
+.lyric-line.active{opacity:1;transform:scale(1.02);color:#fff}
+.lyric-line.dim{opacity:0.18}
+.lyric-source{font-size:11px;color:rgba(255,255,255,0.35);margin-top:16px;text-align:center}
+.queue-item{display:flex;align-items:center;gap:12px;padding:10px 16px;border-radius:12px;cursor:pointer}
+.queue-item.active{background:rgba(255,255,255,0.1)}
+.queue-item.past{opacity:0.4}
+.dot{width:6px;height:6px;background:var(--green);border-radius:50%;flex-shrink:0}
+.notice{position:fixed;top:12px;left:50%;transform:translateX(-50%) translateY(-100px);background:#222;color:#fff;padding:12px 18px;border-radius:999px;font-size:14px;z-index:1000;transition:transform 0.4s;box-shadow:0 10px 30px rgba(0,0,0,0.5);max-width:90%;text-align:center}
+.notice.on{transform:translateX(-50%) translateY(0)}
+.volume-wrap{display:flex;align-items:center;gap:10px;width:100%;margin-top:14px}
+.volume-wrap input[type=range]{flex:1;accent-color:#fff;height:4px}
+.settings-modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(30px);z-index:50;display:none;align-items:flex-end}
+.settings-modal.on{display:flex}
+.settings-sheet{background:#1c1c1e;width:100%;max-height:90vh;border-radius:28px 28px 0 0;padding:24px 20px 40px;overflow:auto}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="bg"></div>
+<div id="content">
+  <!-- LOGIN -->
+  <div id="loginScreen" class="login-screen">
+    <div id="rotatingText" class="login-title">당신은 무슨 노래를 듣고 싶나요?</div>
+    <div class="login-sub">Spotify Premium으로 Aro에서 바로 재생해요</div>
+    <button id="loginBtn" class="btn-primary">Spotify로 로그인</button>
+    <div id="redirectInfo" style="margin-top:14px;font-size:11px;color:#666;word-break:break-all;max-width:320px"></div>
+    <button id="regBtn" class="btn-secondary">등록 요청</button>
+  </div>
+
+  <!-- MAIN -->
+  <div id="mainApp" style="display:none;height:100%;flex-direction:column">
+    <div class="topbar">
+      <h1 id="logo">Aro</h1>
+      <div style="display:flex;gap:8px">
+        <button id="deviceBtn" class="icon-btn" title="기기 선택">◧</button>
+        <button id="settingsBtn" class="icon-btn">⚙︎</button>
+      </div>
+    </div>
+    <div class="main" id="mainScroll">
+      <div class="search-wrap">
+        <div class="search-box">
+          <span>⌕</span>
+          <input id="searchInput" placeholder="노래, 아티스트, 앨범 검색" autocomplete="off">
+        </div>
+        <div id="searchResults"></div>
+      </div>
+
+      <div id="homeSections">
+        <div class="section-title">오늘의 추천 곡 <span><button id="shuffleRec" class="small-btn">새로 고르기</button> <button id="playAllRec" class="small-btn" style="background:#fff;color:#000;margin-left:6px">전체 재생</button></span></div>
+        <div id="recTracks"></div>
+
+        <div class="section-title">내 플레이리스트</div>
+        <div id="playlistsGrid" class="grid"></div>
+
+        <div class="section-title" style="margin-top:32px">좋아요 표시한 곡</div>
+        <div id="likedTracks"></div>
+      </div>
+
+      <div id="playlistDetail" style="display:none">
+        <button id="backToHome" class="small-btn" style="margin-bottom:12px">← 홈으로</button>
+        <h2 id="playlistTitle" style="font-size:26px;font-weight:800;margin-bottom:16px"></h2>
+        <div id="playlistTracks"></div>
+      </div>
+    </div>
+
+    <div id="miniPlayer" class="mini-player">
+      <img id="miniCover" src="">
+      <div style="flex:1;min-width:0">
+        <div id="miniTitle" style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">-</div>
+        <div id="miniArtist" style="font-size:12px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">-</div>
+      </div>
+      <button id="miniPlay" style="width:32px;height:32px;background:#fff;color:#000;border-radius:50%;display:flex;align-items:center;justify-content:center">▶</button>
+      <div id="miniProgress" class="mini-progress" style="width:0%"></div>
+    </div>
+
+    <div class="tabbar">
+      <button class="tab on" data-tab="home"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3L3 9.5V21h6v-6h6v6h6V9.5L12 3z"/></svg><span>홈</span></button>
+      <button class="tab" data-tab="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.3-4.3"/></svg><span>검색</span></button>
+      <button class="tab" data-tab="spotify"><svg viewBox="0 0 24 24" fill="#1DB954"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.65 14.65a0.6 0.6 0 01-.83.2C13.7 15.6 10.9 15.2 7.3 16.1a0.6 0.6 0 01-.24-1.18c4-1 7.1-.5 9.6 1a0.6 0.6 0 01.2.83zm1.4-2.8a0.75 0.75 0 01-1.04.25C14.5 12.6 11 12.1 6.9 13.2a0.75 0.75 0 01-.3-1.47c4.6-1.2 8.6-.65 11.5 1.2a0.75 0.75 0 01.25 1.04zm.1-2.9C15.3 9.2 10.8 8.7 6.3 9.9a0.9 0.9 0 01-.35-1.76c5-1.35 10-0.8 13.3 1.35a0.9 0.9 0 01-.1 1.46z"/></svg><span>Spotify</span></button>
+    </div>
+  </div>
+
+  <!-- PLAYER -->
+  <div id="playerScreen" class="player-screen">
+    <div id="playerBg" class="player-bg"></div>
+    <div class="player-top">
+      <button id="closePlayer" class="icon-btn">⌄</button>
+      <div style="font-size:13px;font-weight:600;opacity:0.8">Aro에서 재생 중</div>
+      <button class="icon-btn" style="visibility:hidden">x</button>
+    </div>
+    <div class="player-content">
+      <div class="player-left">
+        <div id="coverWrap" class="cover-wrap"><img id="bigCover" src="" crossorigin="anonymous"></div>
+        <div class="player-titles">
+          <div id="bigTitle" class="player-title">-</div>
+          <div id="bigArtist" class="player-artist">-</div>
+        </div>
+        <div class="progress-wrap">
+          <div id="progressBar" class="progress"><div id="progressFill" class="progress-fill"><div class="progress-handle"></div></div></div>
+          <div class="time-row"><span id="elapsed">0:00</span><span id="remaining">-0:00</span></div>
+        </div>
+        <div class="controls">
+          <button id="shuffleBtn" class="ctrl">⇄</button>
+          <button id="prevBtn" class="ctrl"><svg viewBox="0 0 24 24" fill="currentColor" width="28"><path d="M19 20L9 12l10-8v16zM7 20V4H5v16h2z"/></svg></button>
+          <button id="playPauseBtn" class="play-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v14l11-7-11-7z"/></svg></button>
+          <button id="nextBtn" class="ctrl"><svg viewBox="0 0 24 24" fill="currentColor" width="28"><path d="M5 4v16l10-8L5 4zm12 0v16h2V4h-2z"/></svg></button>
+          <button id="repeatBtn" class="ctrl">↻</button>
+        </div>
+        <div class="volume-wrap"><span>🔈</span><input id="volumeSlider" type="range" min="0" max="100" value="80"><span>🔊</span></div>
+      </div>
+      <div class="player-right">
+        <div class="segment"><button class="on" data-seg="lyrics">가사</button><button data-seg="queue">재생 목록</button><button data-seg="playlists">플레이리스트</button></div>
+        <div id="lyricsBox" class="lyrics-box"></div>
+        <div id="queueBox" class="lyrics-box" style="display:none"></div>
+        <div id="playlistsBox" class="lyrics-box" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="registerModal" class="register-modal">
+  <div class="register-card">
+    <h3>개발 모드라 등록이 필요해요</h3>
+    <p>Spotify 개발 모드는 대시보드에 등록된 최대 5명만 쓸 수 있어요. 아래 정보로 요청하면 소유자가 대시보드에 추가해줘요.</p>
+    <input id="regName" class="input" placeholder="이름">
+    <input id="regEmail" class="input" placeholder="Spotify 이메일 (Spotify 가입 이메일)">
+    <div id="shareText" class="share-box" style="display:none"></div>
+    <button id="genShare" class="btn-primary" style="width:100%;background:#fff;color:#000">요청 텍스트 만들기</button>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button id="copyShare" class="small-btn" style="flex:1;display:none">복사</button>
+      <button id="kakaoShare" class="small-btn" style="flex:1;display:none;background:#FEE500;color:#000">카톡 공유</button>
+    </div>
+    <button id="closeReg" class="btn-secondary" style="width:100%;margin-top:12px">닫기</button>
+  </div>
+</div>
+
+<div id="notice" class="notice"></div>
+
+<div id="settingsModal" class="settings-modal">
+  <div class="settings-sheet">
+    <div style="width:40px;height:5px;background:#444;border-radius:3px;margin:0 auto 20px"></div>
+    <h2 style="font-size:22px;font-weight:800;margin-bottom:16px">설정</h2>
+    <div style="background:#2c2c2e;border-radius:14px;padding:14px;margin-bottom:12px">
+      <div style="font-size:13px;color:#888;margin-bottom:6px">REDIRECT URI (Spotify Dashboard에 등록해야 함)</div>
+      <div id="settingsRedirect" style="font-size:12px;word-break:break-all;background:#000;padding:8px;border-radius:8px"></div>
+      <button id="copyRedirect" class="small-btn" style="margin-top:8px">복사</button>
+    </div>
+    <div style="background:#2c2c2e;border-radius:14px;padding:14px;margin-bottom:12px">
+      <div style="font-weight:600;margin-bottom:8px">재생 위치</div>
+      <div style="display:flex;gap:8px">
+        <button id="locAro" class="small-btn on" style="flex:1">Aro에서 직접</button>
+        <button id="locSpotify" class="small-btn" style="flex:1">Spotify 앱 조작</button>
+      </div>
+      <div style="font-size:12px;color:#888;margin-top:8px">Aro에서 직접은 Web Playback SDK, 실패하면 9초 뒤 Spotify 앱으로 자동 전환돼요</div>
+    </div>
+    <div style="background:#2c2c2e;border-radius:14px;padding:14px;margin-bottom:12px">
+      <div id="accountInfo" style="font-size:14px"></div>
+      <button id="logoutBtn" class="btn-primary" style="background:#ff3b30;color:#fff;width:100%;margin-top:12px">로그아웃</button>
+    </div>
+    <button id="closeSettings" class="btn-secondary" style="width:100%">닫기</button>
+  </div>
+</div>
+
+</div>
+
+<script src="https://sdk.scdn.co/spotify-player.js"></script>
+<script>
+// ===== CONFIG =====
+const CLIENT_ID = '6a4dfa363c1643fb94440b7e96491673';
+const REDIRECT_URI = location.origin + location.pathname;
+const SCOPES = 'user-read-private user-read-email user-read-playback-state user-modify-playback-state user-read-currently-playing streaming user-read-recently-played user-library-read user-library-modify playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public user-top-read';
+const LS_TOKEN='aro_token', LS_VERIFIER='aro_verifier', LS_REFRESH='aro_refresh';
+
+// ===== STATE =====
+let accessToken=null, refreshToken=null, expiresAt=0;
+let spotifyPlayer=null, deviceId=null, isPlayerReady=false;
+let currentTrack=null, currentContext=[], currentIndex=0;
+let isPlaying=false, progressMs=0, durationMs=0, progressTimer=null;
+let playbackLocation = localStorage.getItem('aro_playbackLocation')||'aro';
+let lastTrackId=null, expectedTrackId=null;
+let failCount=0, failUntil=0;
+
+// ===== HELPERS =====
+function $(id){return document.getElementById(id)}
+function showNotice(msg, ms=3000){const n=$('notice');n.textContent=msg;n.classList.add('on');setTimeout(()=>n.classList.remove('on'),ms)}
+function b64url(buf){return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function randStr(len){const c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';let s='';for(let i=0;i<len;i++)s+=c[Math.floor(Math.random()*c.length)];return s}
+async function sha256(str){return await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))}
+function fmt(ms){if(!ms||isNaN(ms))return '0:00';let s=Math.floor(ms/1000);let m=Math.floor(s/60);s%=60;return m+':'+String(s).padStart(2,'0')}
+function fmtRemain(ms){if(!ms)return '-0:00';let r=durationMs - ms;return '-'+fmt(r)}
+
+// PKCE
+async function createChallenge(verifier){const hash=await sha256(verifier);return b64url(hash)}
+
+async function login(){
+  const verifier=randStr(96);
+  const challenge=await createChallenge(verifier);
+  localStorage.setItem(LS_VERIFIER, verifier);
+  const url=new URL('https://accounts.spotify.com/authorize');
+  url.searchParams.set('client_id', CLIENT_ID);
+  url.searchParams.set('response_type','code');
+  url.searchParams.set('redirect_uri', REDIRECT_URI);
+  url.searchParams.set('scope', SCOPES);
+  url.searchParams.set('code_challenge_method','S256');
+  url.searchParams.set('code_challenge',challenge);
+  location.href=url.toString();
+}
+
+async function exchangeCode(code){
+  const verifier=localStorage.getItem(LS_VERIFIER);
+  const body=new URLSearchParams({client_id:CLIENT_ID,grant_type:'authorization_code',code,redirect_uri:REDIRECT_URI,code_verifier:verifier});
+  const res=await fetch('https://accounts.spotify.com/api/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
+  const data=await res.json();
+  if(!res.ok)throw new Error(data.error_description||data.error||'토큰 교환 실패');
+  saveTokens(data);
+}
+
+function saveTokens(data){
+  accessToken=data.access_token;
+  if(data.refresh_token) refreshToken=data.refresh_token;
+  expiresAt=Date.now()+data.expires_in*1000;
+  localStorage.setItem(LS_TOKEN, accessToken);
+  if(refreshToken) localStorage.setItem(LS_REFRESH, refreshToken);
+  localStorage.setItem('aro_expires', expiresAt.toString());
+}
+
+async function refreshAccess(){
+  const rt=localStorage.getItem(LS_REFRESH);
+  if(!rt) throw new Error('refresh token 없음');
+  const body=new URLSearchParams({client_id:CLIENT_ID,grant_type:'refresh_token',refresh_token:rt});
+  const res=await fetch('https://accounts.spotify.com/api/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
+  const data=await res.json();
+  if(!res.ok) throw new Error('refresh 실패');
+  saveTokens(data);
+  return data.access_token;
+}
+
+async function apiFetch(path, opts={}){
+  if(Date.now()>expiresAt-60000){
+    try{await refreshAccess()}catch(e){console.warn(e)}
+  }
+  const token=localStorage.getItem(LS_TOKEN);
+  const res=await fetch('https://api.spotify.com/v1'+path,{...opts,headers:{...(opts.headers||{}),Authorization:'Bearer '+token,'Content-Type':'application/json'}});
+  if(res.status===401){
+    try{await refreshAccess();const token2=localStorage.getItem(LS_TOKEN);const res2=await fetch('https://api.spotify.com/v1'+path,{...opts,headers:{...(opts.headers||{}),Authorization:'Bearer '+token2,'Content-Type':'application/json'}});return res2;
+    }catch(e){throw e}
+  }
+  return res;
+}
+
+// ===== LYRICS REAL =====
+async function fetchWithTimeout(url, ms=8000){
+  const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),ms);
+  try{const r=await fetch(url,{signal:ctrl.signal});clearTimeout(t);return r;}catch(e){clearTimeout(t);throw e}
+}
+
+async function fetchLRCLIB(artist, title, album, duration){
+  try{
+    const params=new URLSearchParams({artist_name:artist,track_name:title});
+    if(album) params.set('album_name',album);
+    if(duration) params.set('duration',Math.round(duration/1000).toString());
+    const r=await fetchWithTimeout('https://lrclib.net/api/get?'+params.toString());
+    if(r.ok){const d=await r.json();if(d.syncedLyrics||d.plainLyrics)return {type:'synced',text:d.syncedLyrics||d.plainLyrics,source:'LRCLIB'}}
+    // search fallback
+    const r2=await fetchWithTimeout('https://lrclib.net/api/search?q='+encodeURIComponent(artist+' '+title));
+    if(r2.ok){const arr=await r2.json();if(arr.length){const d=arr[0];if(d.syncedLyrics)return {type:'synced',text:d.syncedLyrics,source:'LRCLIB'}}}
+  }catch(e){console.warn('lrclib fail',e)}
+  return null;
+}
+
+async function fetchNetEase(artist, title){
+  const query=artist+' '+title;
+  const proxies=['https://corsproxy.io/?','https://api.allorigins.win/raw?url=','https://api.codetabs.com/v1/proxy?quest='];
+  for(const proxy of proxies){
+    try{
+      const searchUrl='https://music.163.com/api/search/get/web?csrf_token=&hlpretag=&hlposttag=&s='+encodeURIComponent(query)+'&type=1&offset=0&total=true&limit=5';
+      const r=await fetchWithTimeout(proxy+encodeURIComponent(searchUrl));
+      if(!r.ok) continue;
+      const j=await r.json();
+      const songs=j.result?.songs;
+      if(!songs||!songs.length) continue;
+      const id=songs[0].id;
+      const lyricUrl='https://music.163.com/api/song/lyric?id='+id+'&lv=1&kv=1&tv=-1';
+      const r2=await fetchWithTimeout(proxy+encodeURIComponent(lyricUrl));
+      if(!r2.ok) continue;
+      const lj=await r2.json();
+      const lrc=lj.lrc?.lyric;
+      if(lrc) return {type:'synced',text:lrc,source:'NetEase'}
+    }catch(e){continue}
+  }
+  return null;
+}
+
+async function fetchLyricsOvh(artist, title){
+  try{
+    const r=await fetchWithTimeout('https://api.lyrics.ovh/v1/'+encodeURIComponent(artist)+'/'+encodeURIComponent(title));
+    if(r.ok){const d=await r.json();if(d.lyrics)return {type:'plain',text:d.lyrics,source:'lyrics.ovh'}}
+  }catch(e){}
+  return null;
+}
+
+function parseLRC(lrc){
+  const lines=lrc.split('\n');
+  const out=[];
+  for(const line of lines){
+    const m=line.match(/\[(\d+):(\d+)(?:\.(\d+))?\](.*)/);
+    if(m){const min=parseInt(m[1]), sec=parseInt(m[2]), ms=m[3]?parseInt((m[3]+'00').slice(0,3)):0;const time=min*60*1000+sec*1000+ms;const text=m[4].trim();if(text)out.push({time,text})} else if(line.trim() && !line.includes('[')){out.push({time:-1,text:line.trim()})}
+  }
+  out.sort((a,b)=>a.time-b.time);
+  // fill -1 times evenly
+  for(let i=0;i<out.length;i++) if(out[i].time<0){
+    let prev=i>0?out[i-1].time:0;let next=out.slice(i+1).find(x=>x.time>=0);let nextT=next?next.time:prev+4000;out[i].time=Math.floor((prev+nextT)/2);
+  }
+  return out;
+}
+
+const lyricsCache=JSON.parse(localStorage.getItem('aro_lyricsCache')||'{}');
+function saveLyricsCache(trackId, data){lyricsCache[trackId]=data;const keys=Object.keys(lyricsCache);if(keys.length>80) delete lyricsCache[keys[0]];localStorage.setItem('aro_lyricsCache',JSON.stringify(lyricsCache))}
+
+async function getLyrics(track){
+  const id=track.id;
+  const custom=JSON.parse(localStorage.getItem('aro_customLyrics')||'{}')[id];
+  if(custom) return {lines:custom.lines,source:'내가 넣은 가사',custom:true}
+  if(lyricsCache[id]) return lyricsCache[id];
+  // try sources
+  let res=await fetchLRCLIB(track.artists[0].name, track.name, track.album.name, track.duration_ms);
+  if(!res) res=await fetchNetEase(track.artists[0].name, track.name);
+  if(!res) res=await fetchLyricsOvh(track.artists[0].name, track.name);
+  if(!res) return null;
+  let lines;
+  if(res.type==='synced'){lines=parseLRC(res.text)} else {lines=res.text.split('\n').filter(Boolean).map(t=>({time:-1,text:t}))}
+  const data={lines,source:res.source};
+  saveLyricsCache(id,data);
+  return data;
+}
+
+// ===== UI RENDER =====
+function setBgFromCover(url){
+  if(!url) return;
+  const bg=$('bg'), pb=$('playerBg');
+  bg.style.background=`url(${url}) center/cover no-repeat`;
+  pb.style.background=`url(${url}) center/cover no-repeat`;
+  // extract dominant color via canvas (simple average)
+  const img=new Image();img.crossOrigin='anonymous';img.src=url;
+  img.onload=()=>{
+    try{
+      const c=document.createElement('canvas');c.width=20;c.height=20;const ctx=c.getContext('2d');ctx.drawImage(img,0,0,20,20);
+      const d=ctx.getImageData(0,0,20,20).data;let r=0,g=0,b=0;for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2]}r/=400;g/=400;b/=400;
+      const grad=`radial-gradient(ellipse at 30% 20%, rgba(${r},${g},${b},0.9), transparent 60%), radial-gradient(ellipse at 80% 80%, rgba(${r*0.6},${g*0.6},${b},0.7), #000)`;
+      bg.style.background=grad;pb.style.background=grad;
+    }catch(e){}
+  }
+}
+
+function renderTrackRow(track, onClick){
+  const div=document.createElement('div');div.className='track-row';
+  div.innerHTML=`<img src="${track.album?.images?.[2]?.url||track.album?.images?.[0]?.url||''}" loading="lazy"><div class="track-info"><div class="track-name">${track.name}</div><div class="track-artist">${track.artists.map(a=>a.name).join(', ')}</div></div><div class="track-plus">+</div>`;
+  div.onclick=()=>onClick(track);
+  return div;
+}
+
+let recPool=[];
+async function loadRecommendations(){
+  const recEl=$('recTracks');recEl.innerHTML='불러오는 중...';
+  try{
+    // top artists short_term
+    const res=await apiFetch('/me/top/artists?time_range=short_term&limit=10');
+    if(!res.ok) throw new Error('top artists fail');
+    const top=await res.json();
+    const artists=top.items||[];
+    // saved tracks
+    const savedRes=await apiFetch('/me/tracks?limit=50');
+    const savedJson=savedRes.ok?await savedRes.json():{items:[]};
+    const savedTracks=savedJson.items.map(i=>i.track);
+    // build pool: for each top artist search not heard
+    let pool=[];
+    for(const art of artists.slice(0,5)){
+      const sRes=await apiFetch('/search?q=artist:'+encodeURIComponent(art.name)+'&type=track&limit=10');
+      if(!sRes.ok) continue;
+      const sJ=await sRes.json();
+      const tracks=sJ.tracks.items.filter(t=>!savedTracks.some(st=>st.id===t.id));
+      pool=pool.concat(tracks);
+    }
+    pool=pool.concat(savedTracks.slice(0,15));
+    // shuffle and take 50
+    pool.sort(()=>Math.random()-0.5);
+    recPool=pool.slice(0,50);
+    renderRec();
+  }catch(e){
+    recEl.innerHTML='추천을 불러오려면 Top 아티스트 권한이 필요해요. 검색으로 들어보세요.';
+  }
+}
+function renderRec(){
+  const el=$('recTracks');el.innerHTML='';
+  recPool.forEach(t=>{
+    const row=renderTrackRow(t,(track)=>playTrack(track, recPool));
+    el.appendChild(row);
+  })
+}
+
+async function loadPlaylists(){
+  const res=await apiFetch('/me/playlists?limit=50');
+  if(!res.ok) return;
+  const data=await res.json();
+  const grid=$('playlistsGrid');grid.innerHTML='';
+  data.items.forEach(pl=>{
+    const div=document.createElement('div');div.className='card';
+    div.innerHTML=`<img src="${pl.images?.[0]?.url||''}"><div class="card-info"><div class="card-title">${pl.name}</div><div class="card-sub">${pl.tracks.total}곡 • ${pl.owner.display_name}</div></div>`;
+    div.onclick=()=>openPlaylist(pl);
+    grid.appendChild(div);
+  })
+}
+
+async function loadLiked(){
+  const res=await apiFetch('/me/tracks?limit=20');
+  if(!res.ok) return;
+  const data=await res.json();
+  const el=$('likedTracks');el.innerHTML='';
+  data.items.forEach(item=>{
+    const row=renderTrackRow(item.track,(t)=>playTrack(t, data.items.map(i=>i.track)));
+    el.appendChild(row);
+  })
+}
+
+async function openPlaylist(pl){
+  $('homeSections').style.display='none';
+  $('playlistDetail').style.display='block';
+  $('playlistTitle').textContent=pl.name;
+  const tracksEl=$('playlistTracks');tracksEl.innerHTML='모든 곡 불러오는 중...';
+  let allTracks=[], offset=0;
+  while(true){
+    const res=await apiFetch(`/playlists/${pl.id}/tracks?limit=100&offset=${offset}`);
+    if(!res.ok){tracksEl.innerHTML='이 플레이리스트는 소유자가 아니라 재생만 가능해요. 재생 버튼으로 들어보세요. <br><button class="btn-primary" style="margin-top:12px;background:#1DB954;color:#fff" onclick="playPlaylist('${pl.id}')">재생</button>';return}
+    const data=await res.json();
+    const items=data.items.filter(i=>i.track).map(i=>i.track);
+    allTracks=allTracks.concat(items);
+    if(!data.next) break;
+    offset+=100;
+  }
+  tracksEl.innerHTML='';
+  allTracks.forEach(t=>{
+    const row=renderTrackRow(t,(track)=>playTrack(track, allTracks));
+    tracksEl.appendChild(row);
+  })
+  // store for play all
+  tracksEl._tracks=allTracks;
+}
+
+async function search(query){
+  if(!query.trim()){$('searchResults').innerHTML='';return}
+  const res=await apiFetch(`/search?q=${encodeURIComponent(query)}&type=track,artist&limit=10`);
+  if(!res.ok) return;
+  const data=await res.json();
+  const el=$('searchResults');el.innerHTML='';
+  if(data.artists?.items?.length){
+    const title=document.createElement('div');title.textContent='아티스트';title.style.cssText='font-weight:700;margin:12px 0 6px;color:#aaa;font-size:13px';el.appendChild(title);
+    data.artists.items.slice(0,4).forEach(art=>{
+      const div=document.createElement('div');div.className='track-row';
+      div.innerHTML=`<img src="${art.images?.[2]?.url||''}" style="border-radius:50%"><div class="track-info"><div class="track-name">${art.name}</div><div class="track-artist">아티스트</div></div>`;
+      div.onclick=async()=>{
+        const r=await apiFetch(`/search?q=artist:${encodeURIComponent(art.name)}&type=track&limit=20`);
+        if(r.ok){const j=await r.json();$('searchResults').innerHTML='';j.tracks.items.forEach(t=>{const row=renderTrackRow(t,(track)=>playTrack(track,j.tracks.items));$('searchResults').appendChild(row)})}
+      }
+      el.appendChild(div);
+    })
+  }
+  if(data.tracks?.items?.length){
+    const title=document.createElement('div');title.textContent='곡';title.style.cssText='font-weight:700;margin:12px 0 6px;color:#aaa;font-size:13px';el.appendChild(title);
+    data.tracks.items.forEach(t=>{
+      const row=renderTrackRow(t,(track)=>playTrack(track, data.tracks.items));
+      el.appendChild(row);
+    })
+  }
+}
+
+// ===== PLAYBACK REAL =====
+async function playTrack(track, context=null){
+  if(context){currentContext=context;currentIndex=context.findIndex(t=>t.id===track.id);if(currentIndex<0)currentIndex=0}
+  expectedTrackId=track.id;
+  currentTrack=track;
+  updatePlayerUI(track);
+  $('miniPlayer').classList.add('on');
+  $('playerScreen').classList.add('on');
+  lastTrackId=track.id;
+  // try to play
+  if(playbackLocation==='aro' && isPlayerReady && deviceId){
+    await playViaAro(track, context);
+  } else {
+    await playViaSpotifyApp(track, context);
+  }
+}
+
+async function playViaAro(track, context){
+  try{
+    const uris=context?context.map(t=>t.uri):[track.uri];
+    const offset=context?{uri:track.uri}:undefined;
+    // play via API to our device
+    const body={uris, offset};
+    if(!context) body.uris=[track.uri];
+    const res=await apiFetch(`/me/player/play?device_id=${deviceId}`,{method:'PUT',body:JSON.stringify(body)});
+    if(!res.ok){
+      const txt=await res.text();
+      if(res.status===404){showNotice('Spotify 앱을 열어 주세요 - Aro 기기를 찾을 수 없어요');throw new Error('no device')}
+      if(res.status>=500){showNotice('잠시 후 다시 시도해 주세요');await new Promise(r=>setTimeout(r,800));const res2=await apiFetch(`/me/player/play?device_id=${deviceId}`,{method:'PUT',body:JSON.stringify(body)});if(!res2.ok) throw new Error('server error')}
+      else throw new Error(txt);
+    }
+    failCount=0;
+    // verify after 600ms
+    setTimeout(async()=>{
+      const stateRes=await apiFetch('/me/player');
+      if(stateRes.ok){const st=await stateRes.json();if(st.item && st.item.id!==track.id && st.is_playing){console.warn('track mismatch, retry');const res3=await apiFetch(`/me/player/play?device_id=${deviceId}`,{method:'PUT',body:JSON.stringify({uris:[track.uri]})})}}
+    },700);
+  }catch(e){
+    console.error(e);
+    // fallback to Spotify app after 9s rule
+    if(failCount===0){showNotice('Aro에서 재생 안 돼서 Spotify 앱으로 3분간 재생할게요');failCount=1;failUntil=Date.now()+180000;await playViaSpotifyApp(track, context)}
+    else{playbackLocation='spotify';localStorage.setItem('aro_playbackLocation','spotify');showNotice('Spotify 앱 재생으로 전환했어요');await playViaSpotifyApp(track, context)}
+  }
+}
+
+async function playViaSpotifyApp(track, context){
+  try{
+    const devicesRes=await apiFetch('/me/player/devices');
+    if(!devicesRes.ok) throw new Error('devices fail');
+    const devs=await devicesRes.json();
+    const active=devs.devices.find(d=>d.is_active)||devs.devices[0];
+    if(!active){showNotice('재생할 기기가 없어요 - Spotify 앱을 열어 주세요');return}
+    const uris=context?context.map(t=>t.uri):[track.uri];
+    const body=context?{uris,offset:{uri:track.uri}}:{uris};
+    const res=await apiFetch(`/me/player/play?device_id=${active.id}`,{method:'PUT',body:JSON.stringify(body)});
+    if(!res.ok && res.status===404){showNotice('Spotify 앱을 열어 주세요');}
+  }catch(e){showNotice('재생할 기기를 찾을 수 없어요')}
+}
+
+function updatePlayerUI(track){
+  if(!track) return;
+  $('bigCover').src=track.album.images?.[0]?.url||'';
+  $('miniCover').src=track.album.images?.[1]?.url||track.album.images?.[0]?.url||'';
+  $('bigTitle').textContent=track.name;
+  $('miniTitle').textContent=track.name;
+  $('bigArtist').textContent=track.artists.map(a=>a.name).join(', ');
+  $('miniArtist').textContent=track.artists.map(a=>a.name).join(', ');
+  setBgFromCover(track.album.images?.[0]?.url);
+  durationMs=track.duration_ms;
+  $('elapsed').textContent='0:00';
+  $('remaining').textContent='-'+fmt(durationMs);
+  // lyrics
+  loadLyrics(track);
+}
+
+async function loadLyrics(track){
+  const box=$('lyricsBox');box.innerHTML='<div style="text-align:center;padding:40px;color:#888">가사 불러오는 중... LRCLIB → NetEase → lyrics.ovh</div>';
+  try{
+    const data=await getLyrics(track);
+    if(!data){box.innerHTML='<div style="text-align:center;padding:40px;color:#888">가사를 찾을 수 없어요<br><button class="small-btn" style="margin-top:12px" onclick="openLyricEditor()">✎ 가사 직접 넣기</button></div>';return}
+    renderLyrics(data, track);
+  }catch(e){box.innerHTML=`<div style="text-align:center;padding:20px;color:#888">가사 로드 실패<br><button class="small-btn" onclick="loadLyrics(currentTrack)">새로고침</button><div style="font-size:11px;margin-top:8px">${e.message}</div></div>`}
+}
+
+function renderLyrics(data, track){
+  const box=$('lyricsBox');
+  box.innerHTML='';
+  const lines=data.lines;
+  lines.forEach((l,i)=>{
+    const div=document.createElement('div');div.className='lyric-line';div.textContent=l.text||'♪';div.dataset.time=l.time;div.dataset.index=i;
+    div.onclick=()=>{if(spotifyPlayer && l.time>=0){spotifyPlayer.seek(l.time);}};
+    box.appendChild(div);
+  })
+  const src=document.createElement('div');src.className='lyric-source';src.textContent=data.source+'에서 가져옴 • '+ (data.custom?'내가 넣은 가사':'');
+  box.appendChild(src);
+  // edit button
+  const edit=document.createElement('div');edit.style.cssText='text-align:center;margin-top:16px';
+  edit.innerHTML=`<button class="small-btn" onclick="openLyricEditor()">${data.custom?'✎ 내 가사 편집':'✎ 싱크 고치기'}</button>`;
+  box.appendChild(edit);
+  // auto scroll observer
+  box._lines=lines;
+}
+
+function updateProgress(){
+  if(!isPlaying) return;
+  progressMs+=250;
+  if(progressMs>durationMs) progressMs=durationMs;
+  const pct=durationMs?progressMs/durationMs*100:0;
+  $('progressFill').style.width=pct+'%';
+  $('miniProgress').style.width=pct+'%';
+  $('elapsed').textContent=fmt(progressMs);
+  $('remaining').textContent='-'+fmt(durationMs-progressMs);
+  // lyrics highlight
+  const box=$('lyricsBox');
+  if(box._lines){
+    const cur=box._lines.filter(l=>l.time<=progressMs).pop();
+    if(cur){
+      box.querySelectorAll('.lyric-line').forEach(el=>{
+        el.classList.remove('active');
+        const t=parseInt(el.dataset.time);
+        if(t===cur.time) el.classList.add('active');
+      })
+      const active=box.querySelector('.lyric-line.active');
+      if(active){active.scrollIntoView({behavior:'smooth',block:'center'})}
+    }
+  }
+}
+
+function startProgressTimer(){clearInterval(progressTimer);progressTimer=setInterval(updateProgress,250)}
+function stopProgressTimer(){clearInterval(progressTimer)}
+
+// ===== SPOTIFY PLAYER SDK =====
+window.onSpotifyWebPlaybackSDKReady=()=>{
+  const token=localStorage.getItem(LS_TOKEN);
+  if(!token) return;
+  const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const name=isMobile?'Aro (앱)':'Aro (웹)';
+  spotifyPlayer=new Spotify.Player({name, getOAuthToken:cb=>cb(localStorage.getItem(LS_TOKEN)), volume:0.8});
+  spotifyPlayer.addListener('ready',({device_id})=>{console.log('Ready',device_id);deviceId=device_id;isPlayerReady=true;showNotice('Aro 재생기 연결됐어요: '+name)});
+  spotifyPlayer.addListener('not_ready',({device_id})=>{console.log('not ready',device_id);isPlayerReady=false;deviceId=null});
+  spotifyPlayer.addListener('player_state_changed',state=>{
+    if(!state) return;
+    // ignore stale state reporting previous track within 3s of expected change
+    if(expectedTrackId && state.track_window.current_track.id!==expectedTrackId){
+      if(Date.now()- (window._lastPlayAt||0) <3000){console.log('ignore stale state',state.track_window.current_track.id);return}
+    }
+    const track=state.track_window.current_track;
+    if(track && track.id!==currentTrack?.id){
+      // external change
+      currentTrack={id:track.id,name:track.name,artists:track.artists,album:{images:[{url:track.album.images[0]?.url}],name:track.album.name},duration_ms:track.duration_ms,uri:'spotify:track:'+track.id};
+      updatePlayerUI(currentTrack);
+    }
+    isPlaying=!state.paused;
+    progressMs=state.position;
+    durationMs=state.duration;
+    $('coverWrap').classList.toggle('paused', state.paused);
+    const btn=$('playPauseBtn');
+    btn.innerHTML=state.paused?'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v14l11-7-11-7z"/></svg>':'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+    $('miniPlay').textContent=state.paused?'▶':'❚❚';
+    if(isPlaying) startProgressTimer(); else stopProgressTimer();
+    // media session
+    if('mediaSession' in navigator){navigator.mediaSession.metadata=new MediaMetadata({title:track.name,artist:track.artists.map(a=>a.name).join(', '),album:track.album.name,artwork:[{src:track.album.images[0]?.url,sizes:'640x640',type:'image/jpeg'}]});navigator.mediaSession.setActionHandler('play',()=>spotifyPlayer.resume());navigator.mediaSession.setActionHandler('pause',()=>spotifyPlayer.pause());navigator.mediaSession.setActionHandler('nexttrack',()=>next());navigator.mediaSession.setActionHandler('previoustrack',()=>prev());}
+  });
+  spotifyPlayer.addListener('initialization_error',({message})=>{console.error(message);showNotice('재생기 초기화 실패 - Spotify 앱으로 전환');playbackLocation='spotify'});
+  spotifyPlayer.addListener('authentication_error',({message})=>{console.error(message);refreshAccess().then(()=>spotifyPlayer.connect())});
+  spotifyPlayer.addListener('account_error',({message})=>{showNotice('Premium 계정이 필요해요');playbackLocation='spotify'});
+  spotifyPlayer.addListener('playback_error',({message})=>{console.error('playback error',message);showNotice('재생 오류 - 다시 연결할게요');setTimeout(()=>{if(spotifyPlayer) spotifyPlayer.connect()},1000)});
+  spotifyPlayer.connect();
+}
+
+// ===== INIT =====
+async function init(){
+  $('redirectInfo').textContent='Redirect URI: '+REDIRECT_URI;
+  $('settingsRedirect').textContent=REDIRECT_URI;
+  // rotating text
+  const ko=["당신은 무슨 노래를 듣고 싶나요?","오늘은 어떤 음악이 듣고 싶어요?","어떤 노래로 하루를 채울까요?","지금 끌리는 노래가 있나요?","무슨 음악이 생각나세요?"];
+  const en=["What do you want to hear?","What's on your mind today?","Find your sound.","What should we play?","Any song calling you?"];
+  let idx=0, isKo=true;
+  setInterval(()=>{const el=$('rotatingText');el.style.opacity='0';setTimeout(()=>{el.textContent=isKo?ko[idx%ko.length]:en[idx%en.length];el.style.opacity='1';isKo=!isKo;if(isKo)idx++;},300)},5000);
+
+  // check code in URL
+  const params=new URLSearchParams(location.search);
+  const code=params.get('code');
+  const error=params.get('error');
+  if(error){if(error==='access_denied'){showNotice('등록 안 된 계정이에요 - 등록 요청 후 다시 로그인하세요',5000);$('loginScreen').innerHTML+='<div style="margin-top:20px;color:#ff3b30">등록 안 된 계정입니다. 대시보드에 등록 후 다른 계정으로 로그인해 주세요.<br><button class="btn-primary" style="margin-top:12px" onclick="localStorage.clear();location.href=location.pathname">다른 계정으로 로그인</button></div>'} else showNotice('로그인 오류: '+error); history.replaceState({},'',location.pathname); return}
+  if(code){
+    try{await exchangeCode(code);history.replaceState({},'',location.pathname);showLogin(false)}catch(e){showNotice('로그인 실패: '+e.message);console.error(e);showLogin(true);return}
+  } else {
+    const token=localStorage.getItem(LS_TOKEN);
+    if(token){accessToken=token;expiresAt=parseInt(localStorage.getItem('aro_expires')||'0');try{const res=await apiFetch('/me');if(res.ok){showLogin(false);return}}catch(e){}}
+    showLogin(true);
+  }
+}
+
+function showLogin(show){
+  if(show){$('loginScreen').style.display='flex';$('mainApp').style.display='none'} else {$('loginScreen').style.display='none';$('mainApp').style.display='flex';loadUser();loadRecommendations();loadPlaylists();loadLiked();if(window.Spotify) window.onSpotifyWebPlaybackSDKReady();}
+}
+
+async function loadUser(){
+  const res=await apiFetch('/me');
+  if(res.ok){const me=await res.json();$('accountInfo').textContent=me.display_name+' • '+me.id+' • '+me.email; $('logo').textContent='Aro • '+me.display_name}
+}
+
+function next(){if(currentContext.length){let n=currentIndex+1;if(n>=currentContext.length)n=0;playTrack(currentContext[n],currentContext)} else if(spotifyPlayer) spotifyPlayer.nextTrack()}
+function prev(){if(progressMs>3000){if(spotifyPlayer) spotifyPlayer.seek(0)} else if(currentContext.length){let p=currentIndex-1;if(p<0)p=currentContext.length-1;playTrack(currentContext[p],currentContext)} else if(spotifyPlayer) spotifyPlayer.previousTrack()}
+
+// events
+$('loginBtn').onclick=login;
+$('regBtn').onclick=()=>{$('registerModal').classList.add('on')}
+$('closeReg').onclick=()=>{$('registerModal').classList.remove('on')}
+$('genShare').onclick=()=>{
+  const name=$('regName').value.trim(), email=$('regEmail').value.trim();
+  if(!name||!email){showNotice('이름과 이메일 입력해 주세요');return}
+  const txt=`Aro 등록 요청\n이름: ${name}\nSpotify 이메일: ${email}\n요청 시간: ${new Date().toLocaleString()}\n요청 주소: ${REDIRECT_URI}\n\n대시보드 User Management에 추가해 주세요!`;
+  $('shareText').textContent=txt;$('shareText').style.display='block';$('copyShare').style.display='block';$('kakaoShare').style.display='block';
+}
+$('copyShare').onclick=()=>{navigator.clipboard.writeText($('shareText').textContent).then(()=>showNotice('복사됐어요'))}
+$('kakaoShare').onclick=()=>{if(navigator.share){navigator.share({title:'Aro 등록 요청',text:$('shareText').textContent})}else{$('copyShare').click()}}
+$('searchInput').addEventListener('input',e=>{clearTimeout(window._searchT);window._searchT=setTimeout(()=>search(e.target.value),400)})
+$('shuffleRec').onclick=()=>renderRec();
+$('playAllRec').onclick=()=>{if(recPool.length) playTrack(recPool[0], recPool)}
+$('backToHome').onclick=()=>{$('playlistDetail').style.display='none';$('homeSections').style.display='block'}
+$('closePlayer').onclick=()=>{$('playerScreen').classList.remove('on')}
+$('miniPlayer').onclick=(e)=>{if(e.target.id!=='miniPlay') $('playerScreen').classList.add('on')}
+$('miniPlay').onclick=(e)=>{e.stopPropagation();if(spotifyPlayer){spotifyPlayer.togglePlay()}}
+$('playPauseBtn').onclick=()=>{if(spotifyPlayer){spotifyPlayer.togglePlay();window._lastPlayAt=Date.now()}}
+$('nextBtn').onclick=()=>{window._lastPlayAt=Date.now();next()}
+$('prevBtn').onclick=()=>{window._lastPlayAt=Date.now();prev()}
+$('progressBar').onclick=(e)=>{const rect=e.currentTarget.getBoundingClientRect();const pct=(e.clientX-rect.left)/rect.width;const ms=pct*durationMs;if(spotifyPlayer) spotifyPlayer.seek(ms);progressMs=ms;updateProgress()}
+$('volumeSlider').oninput=(e)=>{if(spotifyPlayer) spotifyPlayer.setVolume(e.target.value/100)}
+$('shuffleBtn').onclick=async()=>{const res=await apiFetch('/me/player/shuffle?state=true',{method:'PUT'});showNotice('셔플 켜짐')}
+$('repeatBtn').onclick=async()=>{const res=await apiFetch('/me/player/repeat?state=track',{method:'PUT'});showNotice('한 곡 반복')}
+$('settingsBtn').onclick=()=>{$('settingsModal').classList.add('on')}
+$('closeSettings').onclick=()=>{$('settingsModal').classList.remove('on')}
+$('copyRedirect').onclick=()=>{navigator.clipboard.writeText(REDIRECT_URI).then(()=>showNotice('복사됐어요'))}
+$('logoutBtn').onclick=()=>{localStorage.clear();location.href=location.pathname}
+$('locAro').onclick=()=>{playbackLocation='aro';localStorage.setItem('aro_playbackLocation','aro');$('locAro').classList.add('on');$('locSpotify').classList.remove('on');showNotice('Aro에서 직접 재생으로 변경')}
+$('locSpotify').onclick=()=>{playbackLocation='spotify';localStorage.setItem('aro_playbackLocation','spotify');$('locSpotify').classList.add('on');$('locAro').classList.remove('on');showNotice('Spotify 앱 조작으로 변경')}
+// tabs
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));t.classList.add('on');if(t.dataset.tab==='search'){$('searchInput').focus()} else if(t.dataset.tab==='home'){$('homeSections').style.display='block';$('playlistDetail').style.display='none';$('searchInput').value='';$('searchResults').innerHTML=''}})
+document.querySelectorAll('.segment button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.segment button').forEach(x=>x.classList.remove('on'));b.classList.add('on');$('lyricsBox').style.display=b.dataset.seg==='lyrics'?'block':'none';$('queueBox').style.display=b.dataset.seg==='queue'?'block':'none';$('playlistsBox').style.display=b.dataset.seg==='playlists'?'block':'none';localStorage.setItem('aro_rightTab',b.dataset.seg)})
+
+function openLyricEditor(){showNotice('가사 편집기는 다음 업데이트에 전체 기능으로 들어와요 - 지금은 LRCLIB 가사를 바로 볼 수 있어요')}
+
+init();
+// visibility recheck
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible' && isPlayerReady===false && localStorage.getItem(LS_TOKEN)){setTimeout(()=>{if(window.Spotify && !spotifyPlayer) window.onSpotifyWebPlaybackSDKReady(); else if(spotifyPlayer) spotifyPlayer.connect()},500)}})
+window.addEventListener('online',()=>{if(spotifyPlayer) spotifyPlayer.connect()})
+
+window.playPlaylist=async(id)=>{const res=await apiFetch(`/playlists/${id}/tracks?limit=10`);if(res.ok){const d=await res.json();const tracks=d.items.map(i=>i.track).filter(Boolean);if(tracks.length) playTrack(tracks[0], tracks)}}
+window.loadLyrics=loadLyrics;
+</script>
+</body>
+</html>
